@@ -17,6 +17,7 @@ router.get('/', ({ url }) => {
 router.get('/share/:md5', async (request) => {
     const lang = getI18n(request)
     const { md5 } = request.params
+
     const path = await SHARE.get(md5)
 
     if (!!path) {
@@ -35,10 +36,8 @@ router.get('/share/:md5', async (request) => {
 
 router.get('/:path', async (request) => {
     const lang = getI18n(request)
-
     const { path } = request.params
     const title = decodeURIComponent(path)
-
     const cookie = Cookies.parse(request.headers.get('Cookie') || '')
 
     const { value, metadata } = await queryNote(path)
@@ -67,6 +66,7 @@ router.get('/:path', async (request) => {
 
 router.post('/:path/auth', async request => {
     const { path } = request.params
+
     if (request.headers.get('Content-Type') === 'application/json') {
         const { passwd } = await request.json()
 
@@ -84,6 +84,8 @@ router.post('/:path/auth', async request => {
                         path: `/${path}`,
                         expires: dayjs().add(7, 'day').toDate(),
                         httpOnly: true,
+                        secure: true,
+                        sameSite: 'strict',
                     })
                 })
             }
@@ -95,13 +97,13 @@ router.post('/:path/auth', async request => {
 
 router.post('/:path/pw', async request => {
     const { path } = request.params
+
     if (request.headers.get('Content-Type') === 'application/json') {
         const cookie = Cookies.parse(request.headers.get('Cookie') || '')
         const { passwd } = await request.json()
-
         const { value, metadata } = await queryNote(path)
         const valid = await checkAuth(cookie, path)
-        
+
         if (!metadata.pw || valid) {
             const pw = passwd ? await saltPw(passwd) : undefined
             try {
@@ -111,12 +113,14 @@ router.post('/:path/pw', async request => {
                         pw,
                     },
                 })
-    
+
                 return returnJSON(0, null, {
                     'Set-Cookie': Cookies.serialize('auth', '', {
                         path: `/${path}`,
                         expires: dayjs().subtract(100, 'day').toDate(),
                         httpOnly: true,
+                        secure: true,
+                        sameSite: 'strict',
                     })
                 })
             } catch (error) {
@@ -130,13 +134,13 @@ router.post('/:path/pw', async request => {
 
 router.post('/:path/setting', async request => {
     const { path } = request.params
+
     if (request.headers.get('Content-Type') === 'application/json') {
         const cookie = Cookies.parse(request.headers.get('Cookie') || '')
         const { mode, share } = await request.json()
-
         const { value, metadata } = await queryNote(path)
         const valid = await checkAuth(cookie, path)
-        
+
         if (!metadata.pw || valid) {
             try {
                 await NOTES.put(path, value, {
@@ -156,7 +160,6 @@ router.post('/:path/setting', async request => {
                     await SHARE.delete(md5)
                 }
 
-
                 return returnJSON(0)
             } catch (error) {
                 console.error(error)
@@ -169,6 +172,7 @@ router.post('/:path/setting', async request => {
 
 router.post('/:path', async request => {
     const { path } = request.params
+
     const { value, metadata } = await queryNote(path)
 
     const cookie = Cookies.parse(request.headers.get('Cookie') || '')
@@ -197,13 +201,12 @@ router.post('/:path', async request => {
     } catch (error) {
         console.error(error)
     }
-
     return returnJSON(10001, 'KV insert fail!')
 })
 
 router.all('*', (request) => {
     const lang = getI18n(request)
-    returnPage('Page404', { lang, title: '404' })
+    return returnPage('Page404', { lang, title: '404' })
 })
 
 addEventListener('fetch', event => {
